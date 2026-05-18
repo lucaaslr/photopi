@@ -1,7 +1,7 @@
 """Reusable FastAPI dependencies (authentication / authorisation)."""
 from __future__ import annotations
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,18 +15,32 @@ from app.repositories.user import UserRepository
 _bearer = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
+async def _raw_token(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    token: str | None = Query(None),
+) -> str | None:
+    """Extract raw JWT from Authorization header or ?token= query param.
+
+    The query-param path exists so <img> and <video> tags (which cannot set
+    custom headers) can still authenticate when loading media files.
+    """
+    if creds:
+        return creds.credentials
+    return token
+
+
+async def get_current_user(
+    raw: str | None = Depends(_raw_token),
     session: AsyncSession = Depends(get_session),
 ) -> User:
     """Resolve the authenticated user or raise 401."""
-    if creds is None:
+    if raw is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    payload = decode_token(creds.credentials)
+    payload = decode_token(raw)
     if not payload or "sub" not in payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
@@ -40,16 +54,16 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    raw: str | None = Depends(_raw_token),
     session: AsyncSession = Depends(get_session),
 ) -> User | None:
     """Like get_current_user but returns None instead of raising.
 
     Used by endpoints that may be browsed by guests when ALLOW_GUEST is on.
     """
-    if creds is None:
+    if raw is None:
         return None
-    payload = decode_token(creds.credentials)
+    payload = decode_token(raw)
     if not payload or "sub" not in payload:
         return None
     return await UserRepository(session).get_by_username(payload["sub"])

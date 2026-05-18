@@ -299,7 +299,11 @@ export const api = {
     request<{ status: string }>("/admin/index/cancel", { method: "POST" }),
 };
 
-/** Resolve a relative API media URL to an absolute one for <img> tags. */
+/** Resolve a relative API media URL to an absolute one for <img> tags.
+ *  Appends ?token=... so browser-native requests (img, video) can authenticate.
+ */
 export function mediaUrl(path: string): string {
-  return `${API_BASE}${path}`;
+  const token = getToken();
+  const sep = path.includes("?") ? "&" : "?";
+  return `${API_BASE}${path}${token ? `${sep}token=${token}` : ""}`;
 }

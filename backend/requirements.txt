@@ -1,0 +1,27 @@
+# --- Web framework ---------------------------------------------------------
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# --- Database --------------------------------------------------------------
+SQLAlchemy[asyncio]==2.0.36
+aiosqlite==0.20.0
+asyncpg==0.30.0          # optional PostgreSQL driver
+alembic==1.14.0
+
+# --- Configuration / validation -------------------------------------------
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# --- Security --------------------------------------------------------------
+bcrypt==4.2.1
+PyJWT==2.10.1
+
+# --- Media processing ------------------------------------------------------
+Pillow==11.0.0
+pillow-heif==0.21.0      # HEIC/HEIF support (common in Takeout exports)
+
+# --- Testing ---------------------------------------------------------------
+pytest==8.3.4
+pytest-asyncio==0.25.0
+httpx==0.28.1

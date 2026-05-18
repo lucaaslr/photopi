@@ -1,0 +1,57 @@
+# PhotoPi - default deployment (SQLite).
+#
+# Two small containers, tuned for a Raspberry Pi 3B+:
+#   backend  - FastAPI app: REST API, indexer, media serving
+#   web      - nginx serving the static frontend, reverse-proxying /api
+#
+# For PostgreSQL instead of SQLite, additionally include the override:
+#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d
+
+services:
+  backend:
+    build: ./backend
+    container_name: photopi-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Paths inside the container (do not change without updating volumes).
+      DATA_DIR: /data
+      MEDIA_ROOT: /mnt/google-photos
+      DATABASE_URL: sqlite+aiosqlite:////data/photopi.db
+    volumes:
+      # Persistent app data: database, thumbnails, previews, cache.
+      - photopi-data:/data
+      # The external HDD with the extracted Takeout export, read-only:
+      # PhotoPi never modifies your originals.
+      - ${PHOTOS_DIR:-/mnt/google-photos}:/mnt/google-photos:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # Memory guardrails so indexing cannot swamp a 1GB Pi.
+    mem_limit: 640m
+    mem_reservation: 256m
+
+  web:
+    build: ./web
+    container_name: photopi-web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # Browse PhotoPi at http://<pi-ip>:8080
+      - "${WEB_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    mem_limit: 128m
+
+volumes:
+  photopi-data:

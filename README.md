@@ -1,0 +1,229 @@
+# PhotoPi
+
+A lightweight, self-hosted photo management platform for your **Google Photos
+Takeout** export — built to run comfortably on a **Raspberry Pi 3B+** (1 GB
+RAM, ARM64).
+
+PhotoPi indexes the photos and videos on an external USB hard drive and gives
+you a fast, private, Google-Photos-style web app to browse them. No cloud, no
+accounts with anyone else, no AI/face-recognition bloat — just your library,
+on your hardware.
+
+---
+
+## Features
+
+- **Takeout importer** — resumable, incremental, duplicate-safe scanning of a
+  Google Photos Takeout export, including its messy JSON sidecar naming.
+- **Timeline gallery** — reverse-chronological, grouped by month, with
+  infinite scroll and off-screen culling for smooth scrolling on a Pi.
+- **Media viewer** — full-screen viewer with EXIF/metadata, GPS map links,
+  and original-file download. Videos stream with seek support.
+- **Albums** — create albums manually, or have them reconstructed
+  automatically from your Takeout folder structure.
+- **Search** — filter by filename, date range, media type, camera, and
+  favourites.
+- **Admin dashboard** — storage statistics and live indexing controls
+  (start / pause / resume / cancel).
+- **Authentication** — JWT login, with optional unauthenticated browsing of
+  shared albums.
+- **Documented API** — OpenAPI docs at `/docs`.
+
+## Architecture
+
+Two small containers, both ARM64-native:
+
+| Container | Role |
+|-----------|------|
+| `backend` | FastAPI app — REST API, the indexer, and media serving. Single Uvicorn worker so memory stays flat. |
+| `web`     | nginx serving the statically-exported Next.js frontend and reverse-proxying `/api` to the backend. |
+
+Data stores: **SQLite** (default, WAL mode) or optional **PostgreSQL**.
+The indexer is a single in-process worker — one job at a time — which keeps
+CPU and RAM predictable on a Pi.
+
+```
+Browser ──> web (nginx :8080) ──/api──> backend (FastAPI :8000) ──> SQLite
+                                              │
+                                              └──> /mnt/google-photos (HDD, read-only)
+```
+
+---
+
+## Requirements
+
+- Raspberry Pi 3B+ or newer (ARM64). Also runs on any x86-64 Linux machine.
+- **DietPi** (recommended) or Raspberry Pi OS Lite (64-bit).
+- **Docker** and **Docker Compose v2**.
+- An external USB HDD containing your **extracted** Google Photos Takeout
+  export.
+
+## Quick start
+
+### 1. Install Docker (DietPi)
+
+```bash
+sudo dietpi-software install 162   # Docker
+sudo dietpi-software install 134   # Docker Compose
+```
+
+On Raspberry Pi OS: `curl -fsSL https://get.docker.com | sh`.
+
+### 2. Mount your photos HDD
+
+Extract your Takeout `.zip`/`.tgz` files onto the drive first, then:
+
+```bash
+sudo ./scripts/mount-hdd.sh
+```
+
+This mounts the drive at `/mnt/google-photos` and can add it to `/etc/fstab`
+(read-only, `nofail`) so it survives reboots.
+
+### 3. Configure and launch
+
+```bash
+./scripts/setup.sh
+```
+
+The script copies `.env.example` to `.env`, generates a random `JWT_SECRET`,
+prompts you to set `PHOTOS_DIR` and `ADMIN_PASSWORD`, then builds and starts
+the containers.
+
+To do it manually instead:
+
+```bash
+cp .env.example .env
+nano .env                 # set PHOTOS_DIR, ADMIN_PASSWORD, JWT_SECRET
+docker compose up -d --build
+```
+
+### 4. Open PhotoPi
+
+Browse to `http://<your-pi-ip>:8080`, sign in with the admin credentials from
+your `.env`, then go to **Admin → Start indexing** to scan your library.
+
+The first index of a large library takes a while on a Pi — it is incremental
+and resumable, so you can pause it or let it run overnight.
+
+---
+
+## Configuration
+
+All settings live in `.env` (see `.env.example` for the annotated list). The
+most important ones:
+
+| Variable | Purpose |
+|----------|---------|
+| `PHOTOS_DIR` | Host path to your Takeout export (mounted read-only). |
+| `WEB_PORT` | Port the UI is published on (default `8080`). |
+| `JWT_SECRET` | Secret for signing login tokens — **change this**. |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Bootstrap admin account. |
+| `ALLOW_GUEST` | Allow unauthenticated viewing of shared albums. |
+| `INDEX_THROTTLE_MS` | Sleep between files; raise it if the Pi overheats while indexing. |
+| `THUMB_WORKERS` | Image/video processing threads; keep at `1` on a Pi 3B+. |
+
+PhotoPi **never modifies your originals** — the HDD is mounted read-only.
+Removing an item in the UI only removes it from the index.
+
+### Using PostgreSQL
+
+SQLite is recommended on a Pi. If you specifically want PostgreSQL:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build
+```
+
+---
+
+## Backups
+
+Your **original photos** live on the HDD — back that drive up separately.
+
+PhotoPi's own data (the database and thumbnail cache) lives in a Docker
+volume. Back it up with:
+
+```bash
+./scripts/backup.sh ./backups
+```
+
+This produces a timestamped `.tar.gz` and prints restore instructions. The
+database is small; the thumbnail cache can be regenerated by re-indexing, so
+even losing it is only an inconvenience.
+
+---
+
+## Operations
+
+```bash
+docker compose ps               # container status
+docker compose logs -f backend  # follow backend logs
+docker compose restart          # restart everything
+docker compose down             # stop (data volume is kept)
+docker compose up -d --build    # rebuild and update
+```
+
+**Health checks** are built in: both containers expose Docker
+`HEALTHCHECK`s, and the backend serves `GET /health` (proxied at
+`http://<pi-ip>:8080/health`). Both containers use `restart: unless-stopped`,
+so PhotoPi comes back automatically after a power cut or reboot.
+
+`mem_limit` values in `docker-compose.yml` cap memory use so indexing cannot
+destabilise a 1 GB Pi. Adjust them if you run on a Pi 4/5 with more RAM.
+
+---
+
+## Development
+
+**Backend** (FastAPI):
+
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload          # API at http://localhost:8000
+pytest                                 # run the test suite
+```
+
+**Frontend** (Next.js):
+
+```bash
+cd web
+npm install
+npm run dev                            # UI at http://localhost:3000
+```
+
+For local development, point the frontend at the backend with
+`NEXT_PUBLIC_API_BASE=http://localhost:8000` in `web/.env`.
+
+API documentation is available at `/docs` (Swagger UI) and `/redoc`.
+
+## Project layout
+
+```
+photopi/
+├── backend/            FastAPI application
+│   ├── app/
+│   │   ├── api/        HTTP routers
+│   │   ├── core/       security, dependencies
+│   │   ├── models/     SQLAlchemy ORM models
+│   │   ├── repositories/  data access
+│   │   ├── schemas/    Pydantic request/response models
+│   │   ├── services/   indexer, metadata, thumbnails, takeout, dedup
+│   │   └── workers/    background job manager
+│   ├── alembic/        database migrations
+│   └── tests/          pytest suite
+├── web/                Next.js + TypeScript + Tailwind frontend
+│   └── src/
+│       ├── app/        pages (timeline, login, albums, search, admin)
+│       ├── components/ UI components
+│       ├── hooks/      data-loading hooks
+│       └── lib/        API client, auth, utilities
+├── scripts/            setup.sh, mount-hdd.sh, backup.sh
+├── docker-compose.yml
+└── docker-compose.postgres.yml
+```
+
+## License
+
+Provided as-is for personal, self-hosted use.

@@ -1,0 +1,40 @@
+# PhotoPi - PostgreSQL override.
+#
+# Use this only if you specifically want Postgres; SQLite is the
+# recommended default on a Raspberry Pi (lower memory, zero admin).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d
+#
+# Postgres adds a third container and noticeably more RAM pressure on a
+# 1GB Pi - consider it only if you have a Pi 4/5 with more memory.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: photopi-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-photopi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-photopi}
+      POSTGRES_DB: ${POSTGRES_DB:-photopi}
+    volumes:
+      - photopi-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-photopi} -d ${POSTGRES_DB:-photopi}"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+
+  backend:
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Override the SQLite URL from the base compose file.
+      DATABASE_URL: >-
+        postgresql+asyncpg://${POSTGRES_USER:-photopi}:${POSTGRES_PASSWORD:-photopi}@db:5432/${POSTGRES_DB:-photopi}
+
+volumes:
+  photopi-pgdata:

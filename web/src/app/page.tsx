@@ -7,7 +7,7 @@
  * month sections. Selecting a thumbnail opens the full-screen viewer.
  */
 import { useCallback, useState } from "react";
-import { ImageOff, RefreshCw } from "lucide-react";
+import { ImageOff, RefreshCw, X } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Gallery } from "@/components/Gallery";
 import { MediaViewer } from "@/components/MediaViewer";
@@ -20,7 +20,19 @@ import { useInfiniteMedia } from "@/hooks/useInfiniteMedia";
 export default function TimelinePage() {
   const { loading: authLoading } = useRequireAuth();
   const [filter, setFilter] = useState<"all" | "image" | "video">("all");
+  const [sort, setSort] = useState<"desc" | "asc">("desc");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+
+  const hasFilters = dateFrom !== "" || dateTo !== "" || sort !== "desc" || filter !== "all";
+
+  const clearFilters = () => {
+    setFilter("all");
+    setSort("desc");
+    setDateFrom("");
+    setDateTo("");
+  };
 
   const fetcher = useCallback(
     (cursor: string | undefined) =>
@@ -28,8 +40,11 @@ export default function TimelinePage() {
         cursor,
         limit: 60,
         media_type: filter === "all" ? undefined : filter,
+        sort,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
       }),
-    [filter]
+    [filter, sort, dateFrom, dateTo]
   );
 
   const {
@@ -42,7 +57,7 @@ export default function TimelinePage() {
     reload,
     patchItem,
     removeItem,
-  } = useInfiniteMedia(fetcher, [filter]);
+  } = useInfiniteMedia(fetcher, [filter, sort, dateFrom, dateTo]);
 
   if (authLoading) {
     return (
@@ -57,8 +72,9 @@ export default function TimelinePage() {
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-3 py-5 sm:px-4">
-        {/* Filter pills */}
-        <div className="mb-5 flex items-center gap-2">
+        {/* Filters */}
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          {/* Type pills */}
           {(["all", "image", "video"] as const).map((f) => (
             <button
               key={f}
@@ -73,6 +89,55 @@ export default function TimelinePage() {
               {f === "image" ? "Photos" : f === "video" ? "Videos" : "All"}
             </button>
           ))}
+
+          <div className="h-4 w-px bg-border" />
+
+          {/* Sort pills */}
+          {(["desc", "asc"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSort(s)}
+              className={
+                "rounded-full px-3 py-1 text-sm transition " +
+                (sort === s
+                  ? "bg-accent text-accent-fg"
+                  : "bg-elevated text-muted hover:text-fg")
+              }
+            >
+              {s === "desc" ? "Newest first" : "Oldest first"}
+            </button>
+          ))}
+
+          <div className="h-4 w-px bg-border" />
+
+          {/* Date range */}
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            title="From date"
+            className="rounded-lg border border-border bg-elevated px-2 py-1 text-sm text-fg transition focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+          <span className="text-xs text-muted">–</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            title="To date"
+            className="rounded-lg border border-border bg-elevated px-2 py-1 text-sm text-fg transition focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+
+          {/* Clear filters */}
+          {hasFilters && (
+            <button
+              onClick={clearFilters}
+              title="Clear filters"
+              className="flex items-center gap-1 rounded-full px-3 py-1 text-sm text-muted transition hover:bg-elevated hover:text-fg"
+            >
+              <X size={12} /> Clear
+            </button>
+          )}
+
           <button
             onClick={reload}
             aria-label="Refresh"

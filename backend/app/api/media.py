@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import mimetypes
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
@@ -31,6 +32,9 @@ async def list_timeline(
     limit: int = Query(settings.default_page_size, ge=1, le=settings.max_page_size),
     media_type: str | None = Query(None, pattern="^(image|video)$"),
     include_archived: bool = Query(False),
+    date_from: datetime | None = Query(None),
+    date_to: datetime | None = Query(None),
+    sort: str = Query("desc", pattern="^(asc|desc)$"),
     _user=Depends(require_reader),
     session: AsyncSession = Depends(get_session),
 ) -> MediaPage:
@@ -41,6 +45,9 @@ async def list_timeline(
         cursor=cursor,
         media_type=media_type,
         include_archived=include_archived,
+        date_from=date_from,
+        date_to=date_to,
+        sort=sort,
     )
     return MediaPage(
         items=[media_to_out(m) for m in items],

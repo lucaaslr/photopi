@@ -230,8 +230,14 @@ export const api = {
     }),
 
   // Media
-  timeline: (params: { cursor?: string; limit?: number; media_type?: string }) =>
-    request<MediaPage>(`/media${qs(params)}`),
+  timeline: (params: {
+    cursor?: string;
+    limit?: number;
+    media_type?: string;
+    date_from?: string;
+    date_to?: string;
+    sort?: "asc" | "desc";
+  }) => request<MediaPage>(`/media${qs(params)}`),
   timelineBuckets: () => request<TimelineBucket[]>("/media/timeline/buckets"),
   media: (id: number) => request<MediaDetail>(`/media/${id}`),
   updateMedia: (

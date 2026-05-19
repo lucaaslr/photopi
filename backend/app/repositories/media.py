@@ -78,15 +78,27 @@ class MediaRepository(BaseRepository):
         cursor: str | None = None,
         media_type: str | None = None,
         include_archived: bool = False,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        sort: str = "desc",
     ) -> tuple[list[Media], str | None]:
         """Return (items, next_cursor). next_cursor is None at the end."""
+        asc = sort == "asc"
         stmt = select(Media)
         if not include_archived:
             stmt = stmt.where(Media.archived.is_(False))
         if media_type in ("image", "video"):
             stmt = stmt.where(Media.media_type == media_type)
-        stmt = self._apply_cursor(stmt, cursor)
-        stmt = stmt.order_by(Media.taken_at.desc(), Media.id.desc()).limit(limit + 1)
+        if date_from:
+            stmt = stmt.where(Media.taken_at >= date_from)
+        if date_to:
+            stmt = stmt.where(Media.taken_at <= date_to)
+        stmt = self._apply_cursor(stmt, cursor, asc=asc)
+        if asc:
+            stmt = stmt.order_by(Media.taken_at.asc(), Media.id.asc())
+        else:
+            stmt = stmt.order_by(Media.taken_at.desc(), Media.id.desc())
+        stmt = stmt.limit(limit + 1)
 
         rows = list((await self.session.execute(stmt)).scalars().all())
         return self._paginate(rows, limit)
@@ -206,13 +218,20 @@ class MediaRepository(BaseRepository):
 
     # --- Internal helpers -------------------------------------------------
     @staticmethod
-    def _apply_cursor(stmt, cursor: str | None):
+    def _apply_cursor(stmt, cursor: str | None, *, asc: bool = False):
         if not cursor:
             return stmt
         decoded = decode_cursor(cursor)
         if decoded is None:
             return stmt
         c_taken, c_id = decoded
+        if asc:
+            return stmt.where(
+                or_(
+                    Media.taken_at > c_taken,
+                    and_(Media.taken_at == c_taken, Media.id > c_id),
+                )
+            )
         return stmt.where(
             or_(
                 Media.taken_at < c_taken,

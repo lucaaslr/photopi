@@ -207,6 +207,20 @@ export interface CurrentUser {
   created_at: string;
 }
 
+export interface StorageItem {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size: number | null;
+  mtime: string;
+}
+
+export interface StorageList {
+  items: StorageItem[];
+  current_path: string;
+  parent_path: string | null;
+}
+
 // --- Endpoint helpers -----------------------------------------------------
 function qs(params: Record<string, string | number | boolean | undefined>): string {
   const parts = Object.entries(params)
@@ -303,6 +317,49 @@ export const api = {
     request<{ status: string }>("/admin/index/resume", { method: "POST" }),
   cancelIndex: () =>
     request<{ status: string }>("/admin/index/cancel", { method: "POST" }),
+
+  // Storage
+  storageList: (path?: string) =>
+    request<StorageList>(`/admin/storage/ls${qs({ path })}`),
+  storageUpload: (path: string, files: File[]) => {
+    const formData = new FormData();
+    formData.append("path", path);
+    files.forEach((f) => formData.append("files", f));
+
+    // Custom request for FormData
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    return fetch(`${API_BASE}/api/admin/storage/upload`, {
+      method: "POST",
+      headers,
+      body: formData,
+    }).then(async (resp) => {
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new ApiError(resp.status, text || "Upload failed");
+      }
+      return resp.json();
+    });
+  },
+  storageDelete: (path: string) =>
+    request<void>(`/admin/storage/rm${qs({ path })}`, { method: "DELETE" }),
+  storageMove: (old_path: string, new_path: string) =>
+    request<{ status: string; path: string }>("/admin/storage/mv", {
+      method: "POST",
+      body: { old_path, new_path },
+    }),
+  storageMkdir: (path: string) =>
+    request<{ status: string; path: string }>("/admin/storage/mkdir", {
+      method: "POST",
+      body: { path },
+    }),
+  storageExtract: (path: string) =>
+    request<{ status: string; destination: string }>(
+      `/admin/storage/extract${qs({ path })}`,
+      { method: "POST" }
+    ),
 };
 
 /** Resolve a relative API media URL to an absolute one for <img> tags.

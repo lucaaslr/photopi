@@ -30,6 +30,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useRequireAuth } from "@/lib/auth";
 import { api, type Dashboard, type IndexJob } from "@/lib/api";
 import { formatBytes, formatDateTime, cn } from "@/lib/utils";
+import { StorageExplorer } from "@/components/StorageExplorer";
 
 const RUNNING_STATES = new Set(["pending", "running", "paused"]);
 
@@ -335,6 +336,12 @@ export default function AdminPage() {
               onAction={handleAction}
               busy={busy}
             />
+
+            {/* Storage Manager */}
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold">Storage manager</h2>
+              <StorageExplorer />
+            </div>
 
             {/* Date span + cameras */}
             <div className="grid gap-3 lg:grid-cols-2">

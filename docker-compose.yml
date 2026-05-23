@@ -22,9 +22,8 @@ services:
     volumes:
       # Persistent app data: database, thumbnails, previews, cache.
       - photopi-data:/data
-      # The external HDD with the extracted Takeout export, read-only:
-      # PhotoPi never modifies your originals.
-      - ${PHOTOS_DIR:-/mnt/google-photos}:/mnt/google-photos:ro
+      # The external HDD with the extracted Takeout export:
+      - ${PHOTOS_DIR:-/mnt/google-photos}:/mnt/google-photos
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
       interval: 30s

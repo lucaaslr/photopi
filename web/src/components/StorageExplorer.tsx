@@ -93,7 +93,7 @@ export function StorageExplorer() {
   if (loading && !data) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Spinner size="lg" />
+        <Spinner className="h-8 w-8" />
       </div>
     );
   }
@@ -129,7 +129,7 @@ export function StorageExplorer() {
             disabled={uploading}
           >
             {uploading ? (
-              <Spinner size="sm" className="mr-1" />
+              <Spinner className="h-4 w-4 mr-1" />
             ) : (
               <Upload size={16} className="mr-1" />
             )}

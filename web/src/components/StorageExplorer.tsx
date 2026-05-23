@@ -119,7 +119,7 @@ export function StorageExplorer() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleMkdir}>
+          <Button variant="secondary" size="sm" onClick={handleMkdir}>
             <Plus size={16} className="mr-1" /> New Folder
           </Button>
           <Button
@@ -179,19 +179,19 @@ export function StorageExplorer() {
               {isArchive(item.name) && (
                 <Button
                   variant="ghost"
-                  size="icon-sm"
+                  size="icon"
                   onClick={() => handleExtract(item.path)}
                   title="Extract archive"
-                  className="text-accent"
+                  className="h-8 w-8 text-accent"
                 >
                   <Archive size={16} />
                 </Button>
               )}
               <Button
                 variant="ghost"
-                size="icon-sm"
+                size="icon"
                 onClick={() => handleDelete(item.path)}
-                className="text-muted hover:text-error"
+                className="h-8 w-8 text-muted hover:text-error"
               >
                 <Trash2 size={16} />
               </Button>

@@ -17,7 +17,10 @@ services:
     environment:
       # Paths inside the container (do not change without updating volumes).
       DATA_DIR: /data
-      MEDIA_ROOT: /mnt/google-photos
+      # MEDIA_ROOT is overridable so deployments can scope the indexer to a
+      # subfolder (e.g. /mnt/google-photos/Google Photos) when the HDD also
+      # holds unrelated content that should not be indexed.
+      MEDIA_ROOT: ${MEDIA_ROOT:-/mnt/google-photos}
       DATABASE_URL: sqlite+aiosqlite:////data/photopi.db
     volumes:
       # Persistent app data: database, thumbnails, previews, cache.

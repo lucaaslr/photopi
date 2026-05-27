@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api import admin, albums, auth, media, search, storage
+from app.api import admin, albums, auth, media, search, storage, takeout
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(auth.router)
@@ -16,3 +16,4 @@ api_router.include_router(search.router)
 api_router.include_router(albums.router)
 api_router.include_router(admin.router)
 api_router.include_router(storage.router)
+api_router.include_router(takeout.router)

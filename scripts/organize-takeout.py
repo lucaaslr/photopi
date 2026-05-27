@@ -492,7 +492,13 @@ def main() -> int:
         type=Path,
         default=None,
         help="After an archive is fully processed, move it into this folder "
-        "so you can see what is left. Archives are never deleted.",
+        "so you can see what is left. Cannot be combined with --delete-done.",
+    )
+    parser.add_argument(
+        "--delete-done",
+        action="store_true",
+        help="After an archive is fully processed, DELETE it. Mutually "
+        "exclusive with --move-done. Off by default for safety.",
     )
     parser.add_argument(
         "--loose",
@@ -524,6 +530,10 @@ def main() -> int:
     move_done: Path | None = (
         args.move_done.expanduser().resolve() if args.move_done else None
     )
+
+    if move_done and args.delete_done:
+        log.warn("--move-done and --delete-done are mutually exclusive.")
+        return 2
 
     if not source.is_dir():
         log.warn(f"source folder does not exist: {source}")
@@ -608,6 +618,12 @@ def main() -> int:
                         log.info(f"    moved processed archive -> {target}")
                     except OSError as exc:
                         log.warn(f"could not move {archive.name}: {exc}")
+                elif args.delete_done and written >= 0:
+                    try:
+                        archive.unlink()
+                        log.info(f"    deleted processed archive: {archive.name}")
+                    except OSError as exc:
+                        log.warn(f"could not delete {archive.name}: {exc}")
 
             stats.archives_processed += 1
             log.info(f"    extracted {written} file(s)")

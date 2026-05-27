@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     media_root: str = "/mnt/google-photos"
     # Local app data (database, thumbnails, cache). Docker volume.
     data_dir: str = "/data"
+    # Where uploaded Takeout archives are staged before extraction. Lives
+    # OUTSIDE media_root so the indexer never walks raw .zip files.
+    takeout_staging_dir: str = "/mnt/google-photos/backup_google_photos"
 
     # --- Database ----------------------------------------------------------
     # SQLite by default; set to a postgresql+asyncpg:// URL to use Postgres.

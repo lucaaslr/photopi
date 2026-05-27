@@ -215,6 +215,22 @@ export interface StorageItem {
   mtime: string;
 }
 
+export interface StagedArchive {
+  name: string;
+  size: number;
+  mtime: string;
+}
+
+export interface StagedList {
+  items: StagedArchive[];
+  staging_dir: string;
+}
+
+export interface TakeoutUploadResult {
+  uploaded: string[];
+  errors: { filename: string; error: string }[];
+}
+
 export interface StorageList {
   items: StorageItem[];
   current_path: string;
@@ -360,6 +376,60 @@ export const api = {
       `/admin/storage/extract${qs({ path })}`,
       { method: "POST" }
     ),
+
+  // Takeout import
+  takeoutStaged: () => request<StagedList>("/admin/takeout/staged"),
+  takeoutDeleteStaged: (name: string) =>
+    request<void>(
+      `/admin/takeout/staged/${encodeURIComponent(name)}`,
+      { method: "DELETE" }
+    ),
+  takeoutUpload: (
+    files: File[],
+    onProgress?: (loaded: number, total: number) => void
+  ) => {
+    const formData = new FormData();
+    files.forEach((f) => formData.append("files", f));
+    const token = getToken();
+
+    return new Promise<TakeoutUploadResult>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${API_BASE}/api/admin/takeout/upload`);
+      if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      if (onProgress) {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) onProgress(e.loaded, e.total);
+        };
+      }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText) as TakeoutUploadResult);
+          } catch {
+            reject(new ApiError(xhr.status, "Invalid server response"));
+          }
+        } else {
+          reject(new ApiError(xhr.status, xhr.responseText || "Upload failed"));
+        }
+      };
+      xhr.onerror = () => reject(new ApiError(0, "Network error"));
+      xhr.send(formData);
+    });
+  },
+  takeoutStatus: () => request<IndexJob | null>("/admin/takeout/status"),
+  takeoutImport: (params: {
+    archives?: string[];
+    delete_on_success?: boolean;
+    trigger_index?: boolean;
+  }) =>
+    request<IndexJob>("/admin/takeout/import", {
+      method: "POST",
+      body: {
+        archives: params.archives ?? [],
+        delete_on_success: params.delete_on_success ?? true,
+        trigger_index: params.trigger_index ?? true,
+      },
+    }),
 };
 
 /** Resolve a relative API media URL to an absolute one for <img> tags.

@@ -31,6 +31,7 @@ import { useRequireAuth } from "@/lib/auth";
 import { api, type Dashboard, type IndexJob } from "@/lib/api";
 import { formatBytes, formatDateTime, cn } from "@/lib/utils";
 import { StorageExplorer } from "@/components/StorageExplorer";
+import { TakeoutImporter } from "@/components/TakeoutImporter";
 
 const RUNNING_STATES = new Set(["pending", "running", "paused"]);
 
@@ -336,6 +337,9 @@ export default function AdminPage() {
               onAction={handleAction}
               busy={busy}
             />
+
+            {/* Takeout import */}
+            <TakeoutImporter />
 
             {/* Storage Manager */}
             <div className="space-y-3">

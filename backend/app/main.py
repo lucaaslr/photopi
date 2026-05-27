@@ -19,7 +19,7 @@ from app.config import settings
 from app.core.security import hash_password
 from app.database import SessionLocal, healthcheck, init_db
 from app.repositories.user import UserRepository
-from app.workers import job_manager
+from app.workers import job_manager, takeout_job_manager
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -53,6 +53,7 @@ async def lifespan(_app: FastAPI):
     await init_db()
     await _bootstrap_admin()
     await job_manager.recover_stale_jobs()
+    await takeout_job_manager.recover_stale_jobs()
     logger.info("Startup complete. Media root: %s", settings.media_root)
     yield
     logger.info("Shutting down %s", settings.app_name)

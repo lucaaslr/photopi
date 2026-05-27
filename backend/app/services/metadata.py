@@ -36,6 +36,22 @@ VIDEO_EXTS = {
     ".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm", ".3gp", ".mpg", ".mpeg",
 }
 
+# Container -> MIME. ffprobe doesn't tell us the container MIME directly, and
+# Python's `mimetypes` is patchy for video (no .mkv, .m4v often missing), so
+# we map explicitly. Note: this reflects the CONTAINER only — codec support
+# (e.g. HEVC inside an .mp4) is a separate concern handled by the player.
+VIDEO_MIME = {
+    ".mp4":  "video/mp4",
+    ".mov":  "video/quicktime",
+    ".m4v":  "video/x-m4v",
+    ".avi":  "video/x-msvideo",
+    ".mkv":  "video/x-matroska",
+    ".webm": "video/webm",
+    ".3gp":  "video/3gpp",
+    ".mpg":  "video/mpeg",
+    ".mpeg": "video/mpeg",
+}
+
 # EXIF tag id lookups (resolved once).
 _EXIF_TAGS = {
     "DateTimeOriginal": 36867,
@@ -138,7 +154,11 @@ def extract_image_metadata(path: str | Path) -> MediaMeta:
 
 def extract_video_metadata(path: str | Path) -> MediaMeta:
     """Read duration / dimensions from a video using ffprobe."""
-    meta = MediaMeta(media_type="video", mime_type="video/mp4")
+    ext = Path(path).suffix.lower()
+    meta = MediaMeta(
+        media_type="video",
+        mime_type=VIDEO_MIME.get(ext, "video/mp4"),
+    )
     try:
         proc = subprocess.run(
             [

@@ -15,6 +15,7 @@ from app.api.serializers import media_to_detail, media_to_out
 from app.repositories.media import MediaRepository
 from app.schemas.media import MediaDetail, MediaPage, MediaUpdate, TimelineBucket
 from app.services import thumbnails as thumb_svc
+from app.services.metadata import VIDEO_MIME
 
 router = APIRouter(prefix="/media", tags=["media"])
 
@@ -163,7 +164,11 @@ async def get_original(
     path = Path(media.path)
     if not path.exists():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Original file missing on disk")
-    mime = media.mime_type or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    # Older rows have `video/mp4` baked in for every container; derive from
+    # the extension so .mov/.mkv/.avi/etc are served with the correct MIME
+    # without requiring a full reindex.
+    ext_mime = VIDEO_MIME.get(path.suffix.lower())
+    mime = ext_mime or media.mime_type or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     # FileResponse handles Range requests, enabling video seeking.
     return FileResponse(path, media_type=mime, filename=media.filename)
 
